@@ -40,8 +40,10 @@
 
     <div class="col-lg-6 col-md-8 col-sm-12">
       <ul class="list-group" id="messages">
-        {% for msg in messages %}
+        {% for msg in messages %} 
+        {% if msg.user in g.user.following %}
           <li class="list-group-item">
+            
             <a href="/messages/{{ msg.id  }}" class="message-link"/>
             <a href="/users/{{ msg.user.id }}">
               <img src="{{ msg.user.image_url }}" alt="" class="timeline-image">
@@ -60,8 +62,9 @@
                 <i class="fa fa-thumbs-up"></i> 
               </button>
             </form>
+            {% endif %}
           </li>
-        {% endfor %}
+          {% endfor %}
       </ul>
     </div>
 

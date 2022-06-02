@@ -131,11 +131,18 @@ def list_users():
 
     if not search:
         users = User.query.all()
+        
     else:
         users = User.query.filter(User.username.like(f"%{search}%")).all()
 
-    return render_template('users/index.html', users=users)
+    return render_template('users/index.html', users=show_users)
 
+# @app.route('/')
+# def show_home_page():
+#     curr_user = User.query.get(session[CURR_USER_KEY])
+#     show_users = curr_user.following
+    
+#     return render_template('/messages/show.html', users=show_users)
 
 @app.route('/users/<int:user_id>')
 def users_show(user_id):
@@ -298,7 +305,6 @@ def homepage():
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
-
         return render_template('home.html', messages=messages)
 
     else:
