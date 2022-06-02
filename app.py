@@ -112,7 +112,8 @@ def login():
 @app.route('/logout')
 def logout():
     """Handle logout of user."""
-
+    do_logout()
+    return redirect('/')
     # IMPLEMENT THIS
 
 
@@ -125,7 +126,7 @@ def list_users():
 
     Can take a 'q' param in querystring to search by that username.
     """
-
+    
     search = request.args.get('q')
 
     if not search:
