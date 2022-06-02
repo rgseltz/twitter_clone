@@ -30,7 +30,9 @@
                 {% endif %}
 
               </div>
-              <p class="card-bio">BIO HERE</p>
+              {% for user in user.followers %}
+              <p class="card-bio">{{user.bio}}</p>
+              {% endfor %}
             </div>
           </div>
         </div>
