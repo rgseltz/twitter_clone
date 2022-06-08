@@ -24,6 +24,7 @@ os.environ['DATABASE_URL'] = "postgresql:///warbler_test"
 # Create our tables (we do this here, so we only create the tables
 # once for all tests --- in each test, we'll delete the data
 # and create fresh new clean test data
+db.drop_all()
 db.create_all()
 
 
@@ -42,7 +43,8 @@ class UserModelTestCase(TestCase):
         u1.id = u1id
 
         u2 = User.signup('user2', 'user2@email.com', 'password2', None)
-        u2id = id
+        u2id = 2
+        u2.id = u2id
 
         db.session.add(u1)
         db.session.add(u2)
@@ -56,23 +58,15 @@ class UserModelTestCase(TestCase):
 
         self.client = app.test_client()
 
-    def test_user_model(self):
-        """Does basic model work?"""
+    # def test_user_model(self):
+    #     """Does basic model work?"""
 
-        u = User(
-            email="test@test.com",
-            username="testuser",
-            password="HASHED_PASSWORD"
-        )
-
-        db.session.add(u)
-        db.session.commit()
-
-        self.u = u
+        self.u1 = u1
+        self.u2 = u2
 
         # User should have no messages & no followers
-        self.assertEqual(len(u.messages), 0)
-        self.assertEqual(len(u.followers), 0)
+        self.assertEqual(len(u1.messages), 0)
+        self.assertEqual(len(u1.followers), 0)
 
     def test_user_follows(self):
         self.u1.following.append(self.u2)

@@ -4,8 +4,8 @@ from flask import Flask, render_template, request, flash, redirect, session, g
 from flask_debugtoolbar import DebugToolbarExtension
 from sqlalchemy.exc import IntegrityError
 
-from forms import UserAddForm, LoginForm, MessageForm
-from models import db, connect_db, User, Message
+from forms import UserAddForm, LoginForm, MessageForm, UserProfileForm
+from models import db, connect_db, User, Message, Likes
 
 CURR_USER_KEY = "curr_user"
 
@@ -126,23 +126,17 @@ def list_users():
 
     Can take a 'q' param in querystring to search by that username.
     """
-    
+
     search = request.args.get('q')
 
     if not search:
         users = User.query.all()
-        
+
     else:
         users = User.query.filter(User.username.like(f"%{search}%")).all()
 
     return render_template('users/index.html', users=users)
 
-# @app.route('/')
-# def show_home_page():
-#     curr_user = User.query.get(session[CURR_USER_KEY])
-#     show_users = curr_user.following
-    
-#     return render_template('/messages/show.html', users=show_users)
 
 @app.route('/users/<int:user_id>')
 def users_show(user_id):
@@ -158,7 +152,9 @@ def users_show(user_id):
                 .order_by(Message.timestamp.desc())
                 .limit(100)
                 .all())
-    return render_template('users/show.html', user=user, messages=messages)
+
+    likes = user.likes
+    return render_template('users/show.html', user=user, messages=messages, likes=likes)
 
 
 @app.route('/users/<int:user_id>/following')
@@ -215,11 +211,66 @@ def stop_following(follow_id):
     return redirect(f"/users/{g.user.id}/following")
 
 
-@app.route('/users/profile', methods=["GET", "POST"])
-def profile():
-    """Update profile for current user."""
+@app.route('/users/profile', methods=["GET"])
+def show_profile_update_forms():
+    login_form = UserAddForm()
+    profile_form = UserProfileForm()
+    return render_template('users/profile_edit.html', login_form=login_form, profile_form=profile_form)
 
-    # IMPLEMENT THIS
+
+@app.route('/edit-login', methods=["POST"])
+def update_login():
+    """Update profile for current user."""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    user = User.query.get(g.user.id)
+    login_form = UserAddForm(obj=user)
+    profile_form = UserProfileForm()
+    if login_form.validate_on_submit():
+        user.username = login_form.username.data,
+        user.password = login_form.password.data,
+        user.email = login_form.email.data,
+        user.image_url = login_form.image_url.data or User.image_url.default.arg,
+        # user.id = user.id
+        user.username = user.username
+        user.email = user.email
+        user.image_url = user.image_url
+        db.session.commit()
+
+        return redirect("/")
+
+    else:
+        return render_template('users/profile_edit.html', login_form=login_form, profile_form=profile_form)
+
+
+@app.route('/edit-profile', methods=["POST"])
+def update_profile():
+    """Update profile for current user."""
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    user = User.query.get(g.user.id)
+    profile_form = UserProfileForm()
+    login_form = LoginForm()
+    if profile_form.validate_on_submit():
+        header_image_url = profile_form.header_image_url.data or None
+        bio = profile_form.bio.data
+
+        user.id = user.id
+        user.username = user.username
+        user.email = user.email
+        user.image_url = user.image_url or None
+        user.header_image_url = header_image_url or None
+        user.bio = bio
+        db.session.commit()
+
+        return redirect("/")
+
+    else:
+        return render_template('users/profile_edit.html', login_form=login_form, profile_form=profile_form)
 
 
 @app.route('/users/delete', methods=["POST"])
@@ -269,7 +320,9 @@ def messages_show(message_id):
     """Show a message."""
 
     msg = Message.query.get(message_id)
-    return render_template('messages/show.html', message=msg)
+    user_id = msg.user_id
+    user = User.query.get_or_404(user_id)
+    return render_template('messages/show.html', message=msg, user=user)
 
 
 @app.route('/messages/<int:message_id>/delete', methods=["POST"])
@@ -287,6 +340,42 @@ def messages_destroy(message_id):
     return redirect(f"/users/{g.user.id}")
 
 
+@app.route('/users/add_like/<int:msg_id>', methods=["POST"])
+def like_message(msg_id):
+    """Allows g.user and like other user messages"""
+
+    if not g.user:
+        flash("Please log in to like a message", "alert")
+        return redirect('/')
+
+    liked_message = Message.query.get_or_404(msg_id)
+    if liked_message.user_id == g.user.id:
+        return redirect('/')
+    else:
+        g.user_id = liked_message.user_id
+
+        if liked_message in g.user.likes:
+            g.user.likes = [
+                like for like in g.user.likes if like != liked_message]
+            return redirect('/')
+        else:
+            g.user.likes.append(liked_message)
+            db.session.commit()
+            return redirect('/')
+
+
+@app.route('/users/<int:user_id>/likes')
+def show_user_likes(user_id):
+    if not g.user:
+        flash("Access unauthorized.", "danger")
+        return redirect("/")
+
+    user = User.query.get_or_404(user_id)
+    likes = user.likes
+
+    return render_template('messages/likes.html', user=user, likes=user.likes)
+
+
 ##############################################################################
 # Homepage and error pages
 
@@ -298,16 +387,17 @@ def homepage():
     - anon users: no messages
     - logged in: 100 most recent messages of followed_users
     """
-    following_ids = [f.id for f in g.user.following]
+
     if g.user:
+        following_ids = [f.id for f in g.user.following] + [g.user.id]
         messages = (Message
                     .query.filter(Message.user_id.in_(following_ids))
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
-        print(following_ids)
-        
-        return render_template('home.html', messages=messages)
+        likes = Likes.query.all()
+
+        return render_template('home.html', messages=messages, likes=likes)
 
     else:
         return render_template('home-anon.html')
@@ -329,3 +419,6 @@ def add_header(req):
     req.headers["Expires"] = "0"
     req.headers['Cache-Control'] = 'public, max-age=0'
     return req
+
+##############################################################################
+# Add feature: g.user adds liked messages
