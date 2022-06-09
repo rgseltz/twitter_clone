@@ -211,9 +211,10 @@ def stop_following(follow_id):
     return redirect(f"/users/{g.user.id}/following")
 
 
-@app.route('/users/profile', methods=["GET"])
-def show_profile_update_forms():
-    login_form = UserAddForm()
+@app.route('/users/profile/<int:user_id>', methods=["GET"])
+def show_profile_update_forms(user_id):
+    user = User.query.get_or_404(user_id)
+    login_form = UserAddForm(obj=user)
     profile_form = UserProfileForm()
     return render_template('users/profile_edit.html', login_form=login_form, profile_form=profile_form)
 
@@ -227,7 +228,7 @@ def update_login():
 
     user = User.query.get(g.user.id)
     login_form = UserAddForm(obj=user)
-    profile_form = UserProfileForm()
+    profile_form = UserProfileForm(obj=user)
     if login_form.validate_on_submit():
         user.username = login_form.username.data,
         user.password = login_form.password.data,
@@ -253,18 +254,18 @@ def update_profile():
         return redirect("/")
 
     user = User.query.get(g.user.id)
-    profile_form = UserProfileForm()
-    login_form = LoginForm()
+    profile_form = UserProfileForm(obj=user)
+    login_form = LoginForm(obj=user)
     if profile_form.validate_on_submit():
-        header_image_url = profile_form.header_image_url.data or None
-        bio = profile_form.bio.data
+        user.header_image_url = profile_form.header_image_url.data or None
+        user.bio = profile_form.bio.data
 
         user.id = user.id
         user.username = user.username
         user.email = user.email
-        user.image_url = user.image_url or None
-        user.header_image_url = header_image_url or None
-        user.bio = bio
+        user.image_url = user.image_url
+        user.header_image_url = user.header_image_url
+        user.bio = user.bio
         db.session.commit()
 
         return redirect("/")
@@ -395,7 +396,7 @@ def homepage():
                     .order_by(Message.timestamp.desc())
                     .limit(100)
                     .all())
-        likes = Likes.query.all()
+        likes = [msg.id for msg in g.user.likes]
 
         return render_template('home.html', messages=messages, likes=likes)
 

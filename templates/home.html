@@ -54,11 +54,7 @@
               <button class="
               btn 
               btn-sm 
-              {% if msg.id in likes %}
-                btn-primary
-              {% else %} 
-              btn-secondary
-              {% endif %}">
+              {{'btn-primary' if msg.id in likes else 'btn-secondary'}}">
                 <i class="fa fa-thumbs-up"></i> 
               </button>
             </form>
@@ -69,3 +65,4 @@
 
   </div>
 {% endblock %}
+
