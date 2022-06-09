@@ -101,3 +101,16 @@ class UserModelTestCase(TestCase):
         self.assertEqual(u_test.username, 'usertest1')
         self.assertEqual(self.u2.username, 'user2')
         self.assertEqual(u_test.email, 'usertest1@test.com')
+
+    def test_user_authenticate(self):
+        user = User.authenticate(self.u1.username, 'password')
+        user2 = User.authenticate(self.u2.username, 'password2')
+
+        self.assertIsNotNone(user)
+        self.assertIsNotNone(user2)
+
+    def test_invalid_username(self):
+        self.assertFalse(User.authenticate("wrong-username", "password"))
+
+    def test_invalid_password(self):
+        self.assertFalse(User.authenticate(self.u1.username, "wrong-password"))
