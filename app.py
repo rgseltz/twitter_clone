@@ -215,7 +215,7 @@ def stop_following(follow_id):
 def show_profile_update_forms(user_id):
     user = User.query.get_or_404(user_id)
     login_form = UserAddForm(obj=user)
-    profile_form = UserProfileForm()
+    profile_form = UserProfileForm(obj=user)
     return render_template('users/profile_edit.html', login_form=login_form, profile_form=profile_form)
 
 
@@ -227,8 +227,8 @@ def update_login():
         return redirect("/")
 
     user = User.query.get(g.user.id)
-    login_form = UserAddForm(obj=user)
-    profile_form = UserProfileForm(obj=user)
+    login_form = LoginForm()
+    profile_form = UserProfileForm()
     if login_form.validate_on_submit():
         user.username = login_form.username.data,
         user.password = login_form.password.data,
@@ -255,7 +255,7 @@ def update_profile():
 
     user = User.query.get(g.user.id)
     profile_form = UserProfileForm(obj=user)
-    login_form = LoginForm(obj=user)
+    login_form = LoginForm()
     if profile_form.validate_on_submit():
         user.header_image_url = profile_form.header_image_url.data or None
         user.bio = profile_form.bio.data
