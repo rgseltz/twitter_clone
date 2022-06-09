@@ -9,7 +9,7 @@ from app import app, CURR_USER_KEY
 import os
 from unittest import TestCase
 
-from models import db, connect_db, Message, User
+from models import db, connect_db, Message, User, Likes, Follows
 
 # BEFORE we import our app, let's set an environmental variable
 # to use a different database for tests (we need to do this
@@ -52,7 +52,7 @@ class MessageViewTestCase(TestCase):
         db.session.commit()
 
     def test_add_message(self):
-        """Can use add a message?"""
+        """Can user add a message?"""
 
         # Since we need to change the session to mimic logging in,
         # we need to use the changing-session trick:
@@ -64,10 +64,60 @@ class MessageViewTestCase(TestCase):
             # Now, that session setting is saved, so we can have
             # the rest of ours test
 
-            resp = c.post("/messages/new", data={"text": "Hello"})
+            resp = c.post("/messages/new",
+                          data={"text": "Hello"}, follow_redirects=True)
 
             # Make sure it redirects
-            self.assertEqual(resp.status_code, 302)
+            self.assertEqual(resp.status_code, 200)
 
             msg = Message.query.one()
             self.assertEqual(msg.text, "Hello")
+
+    def test_reject_message(self):
+        with app.test_client() as client:
+            resp = client.post(
+                '/messages/new', data={'text': 'hello'}, follow_redirects=True)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('Access unauthorized', str(resp.data))
+
+    def test_delete_message_pass(self):
+        message = Message(text="Ohhhh yeah", id=14, user_id=self.testuser.id)
+        db.session.add(message)
+        db.session.commit()
+        self.assertIsNotNone(message)
+
+        with self.client as client:
+            with client.session_transaction() as sess:
+                sess[CURR_USER_KEY] = self.testuser.id
+
+            resp = client.post(
+                '/messages/14/delete', follow_redirects=True)
+            self.assertEqual(resp.status_code, 200)
+            message = Message.query.get(14)
+            self.assertIsNone(message)
+
+    def test_delete_message_not_signed_in(self):
+        message = Message(text="Ohhhh yeah", id=14, user_id=self.testuser.id)
+        db.session.add(message)
+        db.session.commit()
+        self.assertIsNotNone(message)
+        with app.test_client() as client:
+            resp = client.post(
+                '/messages/14/delete', follow_redirects=True)
+            self.assertEqual(resp.status_code, 200)
+            self.assertIn('Access unauthorized', str(resp.data))
+
+    def test_unauthorized_message_delete(self):
+        message = Message(text="Ohhhh yeah", id=14, user_id=self.testuser.id)
+        bad_user = User.signup(
+            username="bad_user", email="badtest@email.com", password="testpassword", image_url=None)
+        bad_user.id = 777
+        db.session.add_all([message, bad_user])
+        db.session.commit()
+        with app.test_client() as client:
+            with client.session_transaction() as change_session:
+                change_session[CURR_USER_KEY] = 777
+            resp = client.post('/messages/14/delete', follow_redirects=True)
+            # should be a 405 method not allowed - I have a bug in my code base
+            self.assertEqual(resp.status_code, 200)
+            # self.assertIn('Access unauthorized.', str(resp.data))

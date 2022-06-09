@@ -190,6 +190,9 @@ def add_follow(follow_id):
         return redirect("/")
 
     followed_user = User.query.get_or_404(follow_id)
+    if followed_user.id == g.user.id:
+        flash("You cannot follow yourself!")
+        return redirect('/users')
     g.user.following.append(followed_user)
     db.session.commit()
 
